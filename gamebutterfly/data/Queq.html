@@ -488,7 +488,7 @@ deadleaf3: {
 
   function addMessage(text, type) {
     chatHistory.push({ type: "msg", text, cls: type });
-    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
 
     const div = document.createElement("div");
     div.className = "msg " + type;
@@ -639,7 +639,7 @@ function rechooseEnding() {
   const MSG_INTERVAL = 1500;
 
 function showNode(key) {
-    localStorage.setItem("queqNode", key);
+    localStorage.setItem("QueqNode", key);
     const node = script[key];
     
     // 【关键修复】：在播放动画之前，先把这一整段话全存进历史记录
@@ -650,7 +650,7 @@ function showNode(key) {
             chatHistory.push({ type: "msg", text, cls: "them" });
         }
     });
-    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
 
     // 下面是原本的屏幕逐条播放动画
     choicesEl.innerHTML = "";
@@ -675,7 +675,7 @@ function showNode(key) {
                 // 点选项时存历史
                 chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
                 chatHistory.push({ type: "choice", text: "", action: choice });
-                localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+                localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
 
                 addMessage(choice.text, "me");
                 [...choicesEl.children].forEach(b => b.disabled = true);
@@ -698,7 +698,7 @@ function showNode(key) {
   // ===== 启动检查 =====
    function startApp() {
     const hasLaterSave = localStorage.getItem("deadleafDone") === "1" || localStorage.getItem("shardChoice");
-    const savedHistory = localStorage.getItem("queqHistory");
+    const savedHistory = localStorage.getItem("QueqHistory");
     const hasChatSave = savedHistory && JSON.parse(savedHistory).length > 0;
 
     if (hasLaterSave || hasChatSave) {
@@ -715,12 +715,12 @@ if (localStorage.getItem("playerName")) {
     if (localStorage.getItem("shardChoice")) {
     // 如果选过碎片了，直接播结局
     playEnding();
-} else if (localStorage.getItem("deadleafDone") === "1" && localStorage.getItem("queqNode") !== "deadleafReply" && localStorage.getItem("queqNode") !== "deadleaf2" && localStorage.getItem("queqNode") !== "deadleaf3") {
+} else if (localStorage.getItem("deadleafDone") === "1" && localStorage.getItem("QueqNode") !== "deadleafReply" && localStorage.getItem("QueqNode") !== "deadleaf2" && localStorage.getItem("QueqNode") !== "deadleaf3") {
     // 如果刚从枯叶堆回来，且还没开始后续对话，触发新对话
     showNode("deadleafReply");
 } else {
     // 否则恢复之前的聊天记录
-    chatHistory = JSON.parse(localStorage.getItem("queqHistory") || "[]");
+    chatHistory = JSON.parse(localStorage.getItem("QueqHistory") || "[]");
     renderHistory();
 }
 return;// 直接结束，不显示“继续进度”按钮了
@@ -774,7 +774,7 @@ function renderHistory() {
 
     // 如果最后一条是“选项消失”的记录，说明停在选择那一步，要把选项渲染出来
     if (lastChoiceAction) {
-        const nodeKey = localStorage.getItem("queqNode");
+        const nodeKey = localStorage.getItem("QueqNode");
         const node = script[nodeKey];
         if (node && node.choices) {
             node.choices.forEach(choice => {
@@ -782,14 +782,14 @@ function renderHistory() {
                 btn.textContent = choice.text;
                 btn.onclick = () => {
                     chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
-                    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+                    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
                     addMessage(choice.text, "me");
                     
                     [...choicesEl.children].forEach(b => b.disabled = true);
                     choicesEl.innerHTML = "";
                     
                     chatHistory.push({ type: "choice", text: "", action: choice });
-                    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+                    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
 
                     if (choice.end) {
                         setTimeout(() => { addSystem("—— 委托已接取。请前往校园论坛 ——"); }, 500);
@@ -807,7 +807,7 @@ function renderHistory() {
     } else if (localStorage.getItem("deadleafDone") === "1") {
         showNode("deadleafReply");
     } else {
-        const nodeKey = localStorage.getItem("queqNode");
+        const nodeKey = localStorage.getItem("QueqNode");
         if (nodeKey) showNode(nodeKey);
     }
 }
