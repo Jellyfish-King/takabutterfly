@@ -457,12 +457,15 @@
     form.style.marginTop = "24px";
     p.appendChild(form);
 
-    fields.forEach(f => {
-      const row = document.createElement("div");
-      row.className = "input-row";
-      row.innerHTML = `<span class="prefix">${f.label} &gt;</span><input class="form-input" data-key="${f.key}" autocomplete="off" spellcheck="false" placeholder="${f.ph}">`;
-      form.appendChild(row);
-    });
+fields.forEach(f => {
+  const row = document.createElement("div");
+  row.className = "input-row";
+  // 在 input 后面加了一个 span 来装错误提示
+  row.innerHTML = `<span class="prefix">${f.label} &gt;</span>
+                   <input class="form-input" data-key="${f.key}" autocomplete="off" spellcheck="false" placeholder="${f.ph}">
+                   <span class="error-msg" data-key="${f.key}-err" style="color: #c44a2a; font-size: 13px; display: none; margin-left: 10px;"></span>`;
+  form.appendChild(row);
+});
 
  const btn = document.createElement("button");
 btn.className = "mobile-btn";
@@ -477,31 +480,60 @@ btn.onclick = submit; // 绑定点击
 
     const inputs = form.querySelectorAll(".form-input");
 
-    function submit() {
-      const acc = form.querySelector('[data-key="acc"]').value.trim();
-      const pwd = form.querySelector('[data-key="pwd"]').value.trim();
-      const prot = form.querySelector('[data-key="protect"]').value.trim();
+let attempts = 0;
+function submit() {
+  const acc = form.querySelector('[data-key="acc"]').value.trim();
+  const pwd = form.querySelector('[data-key="pwd"]').value.trim();
+  const prot = form.querySelector('[data-key="protect"]').value.trim();
 
-      const okAcc = (acc === "蔡惺明");
-      const okPwd = (pwd === "rebirth");
-      const okProt = (prot === "蔡惜瞳" || prot === "惜瞳");
+  const okAcc = (acc === "蔡惺明");
+  const okPwd = (pwd === "rebirth");
+  const okProt = (prot === "蔡惜瞳" || prot === "惜瞳");
 
-      if (okAcc && okPwd && okProt) {
-        stageReason();
-        return;
-      }
+  // 每次点击先清空之前的错误提示
+  form.querySelectorAll('.error-msg').forEach(el => {
+      el.style.display = 'none';
+      el.textContent = '';
+  });
 
-      const line = document.createElement("div");
-      line.className = "line danger";
-      if (!okAcc) line.textContent = "枯叶堆没有这个人。";
-      else if (!okPwd) line.textContent = "密码不对。";
-      else line.textContent = "这不是你想保护的人。";
-      p.appendChild(line);
+  if (okAcc && okPwd && okProt) {
+    stageReason();
+    return;
+  }
+attempts++;
+
+const accMsgs = ["这个人不在枯叶堆里。", "这个名字没有注册。", "这不是你的名字。", "……", "你是谁？", "别放弃。"];
+const pwdMsgs = ["密码库里没有这个密码。", "不是这个。", "仔细想想。", "……", "你确定？", "别放弃。"];
+const protMsgs = ["这不是被登记的对象。", "再好好想想。", "你确定？", "……", "这不是你要保护的人。", "别放弃。"];
+  let hasError = false;
+
+  // 分别检查三个输入框
+  if (!okAcc) {
+      const err = form.querySelector('[data-key="acc-err"]');
+      err.textContent = accMsgs[Math.min(attempts - 1, accMsgs.length - 1)];
+      err.style.display = "inline";
+      hasError = true;
+  }
+  if (!okPwd) {
+      const err = form.querySelector('[data-key="pwd-err"]');
+      err.textContent = pwdMsgs[Math.min(attempts - 1, accMsgs.length - 1)];
+      err.style.display = "inline";
+      hasError = true;
+  }
+  if (!okProt) {
+      const err = form.querySelector('[data-key="protect-err"]');
+      err.textContent = protMsgs[Math.min(attempts - 1, accMsgs.length - 1)];
+      err.style.display = "inline";
+      hasError = true;
+  }
+
+  if (hasError) {
       p.classList.add("shake");
       setTimeout(() => p.classList.remove("shake"), 400);
       inputs.forEach(i => i.value = "");
       inputs[0].focus();
-    }
+  }
+}
 
     inputs.forEach(inp => {
       inp.addEventListener("keydown", e => {

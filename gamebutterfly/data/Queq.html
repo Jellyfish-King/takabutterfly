@@ -180,14 +180,38 @@
     background-position: center !important;
     color: transparent !important;
 }
-/* 变灰/换色的头像 */
+/*换色的头像 */
 .cai-avatar.dimmed {
     background-image: url("avatar-cai2.png") !important;
-    opacity: 0.6; /* 稍微降低一点透明度，显得更像失联 */
+}
+/* 断开连接时的全屏闪烁 */
+#screenFlash {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 99999;
+    opacity: 0;
+}
+#screenFlash.active {
+    animation: flashAnim 0.8s ease-out;
+}
+@keyframes flashAnim {
+    0% { background: #fff; opacity: 1; }
+    15% { background: #fff; opacity: 0; }
+    30% { background: #000; opacity: 1; }
+    50% { background: #000; opacity: 0; }
+    70% { background: #c44a2a; opacity: 0.5; }
+    100% { background: transparent; opacity: 0; }
+}
+
+/* 断开后整个聊天界面的压抑感（可选） */
+.chat-offline #chat {
+    filter: grayscale(80%) contrast(120%);
+    transition: filter 1s ease;
 }
 </style>
 </head>
 <body>
+<div id="screenFlash"></div>
 
 <!-- 登录页 -->
 <div id="loginPage">
@@ -477,15 +501,28 @@ function playEnding() {
         setTimeout(() => {
             addMessage(text, "them");
             
-            // 如果这句话里有“断开连接”四个字，就触发换头像
-            if (text.includes("断开连接")) {
-                document.querySelectorAll(".cai-avatar").forEach(el => {
-                    el.classList.add("dimmed");
-                });
-                // 顺便把左侧好友栏的状态改成离线
-                const contact = document.getElementById("contactCai");
-                if (contact) contact.classList.add("offline");
-            }
+ // 如果这句话里有“断开连接”四个字，就触发换头像和闪屏
+if (text.includes("断开连接")) {
+    // 1. 换头像
+    document.querySelectorAll(".cai-avatar").forEach(el => {
+        el.classList.add("dimmed");
+    });
+    const contact = document.getElementById("contactCai");
+    if (contact) contact.classList.add("offline");
+
+    // 2. 屏幕闪烁
+    const flash = document.getElementById("screenFlash");
+    if (flash) {
+        flash.classList.add("active");
+        // 动画播完移除类名，方便下次触发
+        setTimeout(() => flash.classList.remove("active"), 800);
+    }
+
+    // 3. （可选）让整个聊天框变得灰暗
+    const app = document.getElementById("app");
+    if (app) app.parentElement.classList.add("chat-offline"); 
+    // 注：如果 app.parentElement 没效果，直接换用 document.body.classList.add("chat-offline")
+}
             
         }, i * MSG_INTERVAL);
     });
