@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queq</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #e8ecef;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* 登录页 */
+  #loginPage {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #6a9bff, #4a7cff);
+  }
+  #loginBox {
+    background: #fff;
+    border-radius: 12px;
+    padding: 40px 32px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,.2);
+  }
+  #loginBox h1 { font-size: 26px; color: #2b3a55; margin-bottom: 6px; }
+  #loginBox .sub { font-size: 13px; color: #999; margin-bottom: 24px; }
+  #nickInput {
+    width: 100%; padding: 12px; font-size: 15px;
+    border: 1px solid #d5dae0; border-radius: 8px;
+    outline: none; text-align: center; margin-bottom: 12px;
+  }
+  #nickInput:focus { border-color: #4a7cff; }
+  #loginBtn {
+    width: 100%; padding: 12px; font-size: 15px;
+    border: none; background: #4a7cff; color: #fff;
+    border-radius: 8px; cursor: pointer;
+  }
+  #loginBtn:hover { background: #3a6ae0; }
+
+  /* 主界面 */
+  #mainPage { display: none; height: 100vh; background: #fff; }
+  #app { width: 100%; height: 100%; display: grid; grid-template-columns: 220px 1fr; }
+  #sidebar { background: #2b3a55; color: #fff; padding: 14px 10px; overflow-y: auto; }
+  .my-info {
+    padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.1);
+    margin-bottom: 10px; font-size: 14px;
+  }
+  .my-info .me-name { font-weight: 600; }
+  .my-info .me-status { font-size: 11px; color: #7bd88f; margin-top: 2px; }
+  .section-title { font-size: 11px; color: rgba(255,255,255,.4); padding: 8px 10px 4px; }
+  .contact {
+    padding: 9px 10px; border-radius: 8px; font-size: 14px;
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+  }
+  .contact:hover { background: rgba(255,255,255,.08); }
+  .contact.active { background: rgba(255,255,255,.15); }
+  .contact.disabled {
+    cursor: default;
+    opacity: .55;
+  }
+  .contact.disabled:hover { background: transparent; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #6a9bff; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; flex-shrink: 0; color: #fff;
+    background-size: cover; background-position: center;
+  }
+  .contact .name {
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .contact .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #7bd88f; flex-shrink: 0;
+  }
+  .contact.offline .dot { background: #666; }
+  .contact .badge {
+    background: #ff4d4f; color: #fff; font-size: 11px;
+    padding: 1px 6px; border-radius: 10px;
+  }
+
+  /* 聊天区 */
+  #chat { display: flex; flex-direction: column; background: #f5f6f8; min-height: 0; min-width: 0; }
+  #chatHeader {
+    background: #fff; padding: 12px 18px;
+    border-bottom: 1px solid #e2e5e9;
+    font-size: 15px; font-weight: 600; color: #2b3a55;
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+  }
+  #chatHeader .header-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #ff8c42; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    background-size: cover; background-position: center;
+  }
+  #messages {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  #messages::-webkit-scrollbar { width: 8px; }
+  #messages::-webkit-scrollbar-thumb {
+    background: #c3c9d2; border-radius: 4px;
+  }
+  #messages::-webkit-scrollbar-thumb:hover { background: #a8afb9; }
+  #messages::-webkit-scrollbar-track { background: transparent; }
+
+  .msg {
+    max-width: 75%; padding: 9px 12px; border-radius: 10px;
+    font-size: 14px; line-height: 1.55; white-space: pre-wrap;
+    word-break: break-word; animation: pop .2s ease-out;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .them { align-self: flex-start; background: #fff; border: 1px solid #e2e5e9; }
+  .me { align-self: flex-end; background: #4a7cff; color: #fff; }
+  .system { align-self: center; font-size: 12px; color: #888; padding: 2px; }
+  #choices {
+    padding: 10px 16px 16px; display: flex;
+    flex-direction: column; gap: 8px; background: #f5f6f8;
+    flex-shrink: 0;
+  }
+  #choices button {
+    text-align: left; padding: 10px 12px; font-size: 14px;
+    border: 1px solid #cfd6e0; background: #fff;
+    border-radius: 8px; cursor: pointer; transition: .15s;
+  }
+  #choices button:hover { background: #eef3ff; border-color: #4a7cff; }
+  #choices button:disabled { opacity: .5; cursor: default; }
+
+  /* 新好友弹窗 */
+  #friendPopup {
+    display: none; position: fixed; top: 20px; right: 20px;
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.18);
+    padding: 14px 16px; width: 280px; z-index: 100;
+    animation: slidein .25s ease-out;
+  }
+  @keyframes slidein {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  #friendPopup .pop-title { font-size: 12px; color: #888; margin-bottom: 8px; }
+  #friendPopup .pop-body {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  #friendPopup .pop-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #ff8c42; color: #fff; display: flex;
+    align-items: center; justify-content: center; font-size: 16px;
+    background-size: cover; background-position: center;
+  }
+  #friendPopup .pop-name { font-weight: 600; font-size: 14px; }
+  #friendPopup .pop-msg { font-size: 12px; color: #666; margin-top: 2px; }
+  #friendPopup .pop-actions { display: flex; gap: 8px; }
+  #friendPopup button {
+    flex: 1; padding: 8px; font-size: 13px;
+    border-radius: 6px; cursor: pointer; border: none;
+  }
+  #acceptBtn { background: #4a7cff; color: #fff; }
+  #acceptBtn:hover { background: #3a6ae0; }
+  #rejectBtn { background: #eef0f3; color: #666; }
+.msg.link{
+  color:#4a7cff;
+  text-decoration:underline;
+ cursor:pointer;
+}
+.cai-avatar {
+    background-image: url("avatar-cai.png") !important;
+    background-size: cover !important;
+    background-position: center !important;
+    color: transparent !important;
+}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="loginPage">
+  <div id="loginBox">
+    <h1>Queq</h1>
+    <div class="sub">有事没事，Queq一下</div>
+    <input id="nickInput" placeholder="输入你的昵称" maxlength="12">
+    <button id="loginBtn">登录</button>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="mainPage">
+  <div id="app">
+    <div id="sidebar">
+      <div class="my-info">
+        <div class="me-name" id="meName">—</div>
+        <div class="me-status">在线</div>
+      </div>
+      <div class="section-title">好友</div>
+      <div class="contact offline" id="contactCai" style="display:none;">
+        <div class="avatar cai-avatar" style="background:#ff8c42;">蝶</div>
+        <div class="name">菜粉蝶</div>
+        <div class="badge" id="contactBadge">1</div>
+      </div>
+      <div class="contact disabled">
+        <div class="avatar" style="background:#6c8cbf;">玛</div>
+        <div class="name">玛卡巴卡</div>
+      </div>
+      <div class="contact disabled">
+        <div class="avatar" style="background:#7fb07f;">唔</div>
+        <div class="name">唔西比西</div>
+      </div>
+      <div class="contact disabled">
+        <div class="avatar" style="background:#FFFFFF;"></div>
+        <div class="name">栖鹰</div>
+      </div>
+      <div class="section-title">群聊</div>
+      <div class="contact disabled">
+        <div class="avatar" style="background:#8a7fb0;">找</div>
+        <div class="name">AAA同城找人网络找人接单群</div>
+      </div>
+    </div>
+    <div id="chat">
+      <div id="chatHeader">
+        <div class="header-avatar cai-avatar" style="background:#ff8c42;">蝶</div>
+        <span>菜粉蝶</span>
+      </div>
+      <div id="messages"></div>
+      <div id="choices"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 新好友弹窗 -->
+<div id="friendPopup">
+  <div class="pop-title">新好友请求</div>
+  <div class="pop-body">
+    <div class="pop-avatar cai-avatar">蝶</div>
+    <div>
+      <div class="pop-name">菜粉蝶</div>
+      <div class="pop-msg">请求添加你为好友</div>
+    </div>
+  </div>
+  <div class="pop-actions">
+    <button id="acceptBtn">接受</button>
+    <button id="rejectBtn">拒绝</button>
+  </div>
+</div>
+
+<script>
+// ============ 结局文本 ============
+const endingScripts = {
+    posts: {
+        chat: [
+            "我找到了。",
+            "枯叶堆的入口。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学正在上课,请下课后联系。",
+        "【自动回复】该同学已断开连接。"
+        ],
+        ending: {
+            title: "结局 · 蝴蝶归蛹",
+            body: "帖子是别人眼中的他/她。哥哥已经从人们的印象中消失了，而他遗留在校园论坛的痕迹，也被你扔进了枯叶堆里......而贴子里的“我妹”，也随之消失了。"
+        }
+    },
+    draft: {
+        chat: [
+            "谢谢你。",
+            "他回来了。",
+            "虽然他不记得我了",
+           "但我相信，他会想起来的。"
+        ],
+        ending: {
+            title: "结局 · 蝴蝶咬破了蛹",
+            body: "日记是他最真实的侧写。得益于你把日记带进来，蔡惺明找到了回到现实的锚点。不过还有很多事情，他还需要慢慢适应。"
+        }
+    },
+    sign: {
+        chat: [
+            "你是坏人！",
+            "我哥回不来了",
+            "再也回不来了......",
+           "坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！坏人！"
+        ],
+        ending: {
+            title: "结局 · 亡于蛹中",
+            body: "签名是他对自己的定义。但是好像，成为了谶语......"
+        }
+    }
+};
+  const script = {
+    start: {
+      messages: [
+        "你好,请问是接找人委托的吗？",
+        "听说你找人很厉害。",
+              ],
+      choices: [
+        { text: "你好,说说情况吧。", next: "ask" },
+        { text: "你要找谁？", next: "ask" },
+        { text: "如果只是失踪案件,建议找警察报案。", next: "police" }
+      ]
+    },
+    police: {
+      messages: [
+        "我试过了",
+        "警察查不到他的任何信息",
+        "我爸妈也说我根本没有哥哥。"
+      ],
+      choices: [
+        { text: "哥哥？", next: "ask" }
+      ]
+    },
+    ask: {
+      messages: [
+        "嗯,我找我哥。",
+        "虽然爸妈坚持说我没有哥哥,可是我很清楚,我俩的大名和小名都是强关联的,我不可能没有哥哥。",
+       "我哥叫蔡惺明,小名菜粉虫。我小名菜粉蝶。",
+        "我哥在南极星学院附属中学上学",
+        "这个学校全年住宿,一年回一次家,我哥今年高三毕业,但他没回来。",
+        "我现在刚考上这里上高一。",
+        "这所学校有校园论坛,每个学生有一个账号。但我不知道我哥的账号是什么。",
+        "我把我的账号密码给你。",
+       "ID:caifendie",
+       "密码:20110423",
+        "校园论坛网址是 [\链接]"
+      ],
+      choices: [
+        { text: "你哥平时有什么习惯？", next: "habit" },
+        { text: "你哥有没有朋友？", next: "friend" },
+        { text: "你哥的密码可能是什么？", next: "password" }
+      ]
+    },
+    habit: {
+      messages: [
+        "他从来不说学校的事。",
+        "你帮我找找他的论坛吧。"
+      ],
+      choices: [{ text: "好,我去看看。", next: "end" }]
+    },
+    friend: {
+      messages: [
+        "我不知道他有没有朋友。",
+        "他从来不说学校的事。",
+        "你帮我找找他的论坛吧。"
+      ],
+      choices: [{ text: "好,我去看看。", next: "end" }]
+    },
+    password: {
+      messages: [
+        "我不知道。",
+        "他从来不说学校的事。",
+       "你帮我找找他的论坛吧。"
+      ],
+      choices: [{ text: "好,我去看看。", next: "end" }]
+    },
+    end: {
+      messages: [
+        "我上课了。终端要收了。查到了给我留言，我下课就会看。",
+        "【自动回复】该同学正在上课,请下课后联系。"
+      ],
+choices:[
+{text:"(前往校园论坛)",end:true}
+]
+    },
+
+deadleafReply: {
+  messages: [
+    "什么叫抵押自身存在？？？",
+    "什么叫能给我的最好的生日礼物？？",
+    "我不需要！！",
+    "蔡惺明，你知道吗，你失踪后我没有哪天真正开心过",
+    "我在论坛发了那么多帖子，发了那么多，就是想让你看到",
+    "哪怕回我一个标点符号也行",
+    "但你到哪里去了？！"
+  ],
+  choices: [
+    { text: "……", next: "deadleaf2" }
+  ]
+},
+
+deadleaf2: {
+  messages: [
+    "对不起，我不该向你发脾气。",
+    "我只是……",
+    "还能找到他真是太好了。",
+    "谢谢你找到他。",
+    "你说，他还能回来吗？"
+  ],
+  choices: [
+    { text: "……试试看。", next: "deadleaf3" }
+  ]
+},
+
+deadleaf3: {
+  messages: [
+    "嗯",
+    "我现在就去看",
+    "我不知道触发了什么，让我从三样东西里选一个带进去",
+   "我不敢乱选，你能帮我看看吗？"
+  ],
+  choices: [
+    { text: "（回到枯叶堆）", goto: "deadleaf.html" }
+  ]
+}
+  };
+
+  const loginPage = document.getElementById("loginPage");
+  const mainPage = document.getElementById("mainPage");
+  const nickInput = document.getElementById("nickInput");
+  const loginBtn = document.getElementById("loginBtn");
+  const meName = document.getElementById("meName");
+  const friendPopup = document.getElementById("friendPopup");
+  const acceptBtn = document.getElementById("acceptBtn");
+  const rejectBtn = document.getElementById("rejectBtn");
+  const contactCai = document.getElementById("contactCai");
+  const contactBadge = document.getElementById("contactBadge");
+  const messagesEl = document.getElementById("messages");
+  const choicesEl = document.getElementById("choices");
+
+  loginBtn.onclick = () => {
+    const name = nickInput.value.trim() || "无名氏";
+    localStorage.setItem("playerName",name);
+    meName.textContent = name;
+    loginPage.style.display = "none";
+    mainPage.style.display = "block";
+    setTimeout(() => { friendPopup.style.display = "block"; }, 1000);
+  };
+  nickInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") loginBtn.click();
+  });
+
+  acceptBtn.onclick = () => {
+    friendPopup.style.display = "none";
+    contactCai.style.display = "flex";
+    contactCai.classList.remove("offline");
+    contactBadge.style.display = "none";
+    addSystem("你已添加 菜粉蝶 为好友");
+    setTimeout(() => showNode("start"), 600);
+  };
+  rejectBtn.onclick = () => {
+    friendPopup.style.display = "none";
+    setTimeout(() => { friendPopup.style.display = "block"; }, 800);
+  };
+
+  function addMessage(text, type) {
+    const div = document.createElement("div");
+    div.className = "msg " + type;
+    div.innerHTML= text.replace(/\[链接\]/g,'<a class="link"href="njxfz-luntan.html"target="_blank">njxfz-luntan.html</a>');
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  function addSystem(text) { addMessage(text, "system"); }
+function playEnding() {
+    const choice = localStorage.getItem("shardChoice");
+    const data = endingScripts[choice];
+    if (!data) return;
+
+    data.chat.forEach((text, i) => {
+        setTimeout(() => addMessage(text, "them"), i * MSG_INTERVAL);
+    });
+
+    const delay = data.chat.length * MSG_INTERVAL + 1000;
+    setTimeout(() => showEndingPopup(data.ending), delay);
+}
+
+function showEndingPopup(ending) {
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;";
+    box.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:36px 40px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+        <h2 style="font-size:20px;color:#2b3a55;margin-bottom:20px;text-align:center;letter-spacing:2px;">${ending.title}</h2>
+        <div style="font-size:14px;line-height:2;color:#444;white-space:pre-wrap;">${ending.body}</div>
+        <div style="display:flex;gap:10px;margin-top:24px;">
+  <button onclick="closeEnding()" style="flex:1;padding:12px;background:#4a7cff;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">结束</button>
+  <button onclick="rechooseEnding()" style="flex:1;padding:12px;background:#eef1f5;color:#666;border:none;border-radius:8px;font-size:15px;cursor:pointer;">重选结局</button>
+</div>
+    `;
+    document.body.appendChild(box);
+// 如果是坏结局，演出后再显示弹窗
+const choice = localStorage.getItem("shardChoice");
+if (choice === "sign") {
+    box.style.display = "none";
+    playIdentityReveal(() => {
+        box.style.display = "flex";
+    });
+}
+}
+function playIdentityReveal(callback) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99999;color:#fff;font-family:'Courier New',monospace;";
+    
+    const text = document.createElement("div");
+    text.style.cssText = "font-size:32px;letter-spacing:6px;text-align:center;transition:all 1s;";
+    text.textContent = "而你的真实身份……";
+    overlay.appendChild(text);
+    document.body.appendChild(overlay);
+
+    // 第一段淡入
+    setTimeout(() => {
+        text.style.opacity = "1";
+    }, 100);
+
+    // 第二段：切换文字
+    setTimeout(() => {
+        text.style.opacity = "0";
+    }, 2200);
+
+    setTimeout(() => {
+        text.textContent = "“我是谁并不重要”";
+        text.style.opacity = "1";
+        text.style.fontSize = "40px";
+    }, 3000);
+
+    // 第三段：闪烁 + 逐步缩减
+    setTimeout(() => {
+        // 闪烁
+        let blink = 0;
+        const blinkTimer = setInterval(() => {
+            text.style.opacity = (blink % 2 === 0) ? "0.2" : "1";
+            blink++;
+            if (blink > 6) {
+                clearInterval(blinkTimer);
+                text.style.opacity = "1";
+            }
+        }, 120);
+
+        // 缩减文字
+        setTimeout(() => {
+            text.textContent = "“我是谁”";
+            text.style.color = "#c44a2a";
+        }, 1000);
+
+        setTimeout(() => {
+            text.textContent = "“我是”";
+            text.style.fontSize = "56px";
+        }, 1800);
+
+        setTimeout(() => {
+            text.textContent = "“我”";
+            text.style.fontSize = "80px";
+            text.style.textShadow = "0 0 30px #c44a2a";
+        }, 2600);
+
+        // 结束
+        setTimeout(() => {
+            overlay.style.transition = "opacity 1s";
+            overlay.style.opacity = "0";
+            setTimeout(() => {
+                overlay.remove();
+                if (callback) callback();
+            }, 1000);
+        }, 4500);
+    }, 4200);
+}
+function closeEnding() {
+    localStorage.removeItem("deadleafDone");
+    localStorage.removeItem("shardChoice");
+    location.reload();
+}
+function rechooseEnding() {
+    localStorage.removeItem("shardChoice");
+    window.location.href = "deadleaf.html";
+}
+
+  const MSG_INTERVAL = 1500;
+
+  function showNode(key) {
+    const node = script[key];
+    choicesEl.innerHTML = "";
+    node.messages.forEach((text, i) => {
+      setTimeout(() => { addMessage(text, "them"); }, i * MSG_INTERVAL);
+    });
+    const delay = node.messages.length * MSG_INTERVAL + 500;
+    setTimeout(() => {
+      choicesEl.innerHTML = "";
+      node.choices.forEach(choice => {
+        const btn = document.createElement("button");
+        btn.textContent = choice.text;
+        btn.onclick = () => {
+          addMessage(choice.text, "me");
+          [...choicesEl.children].forEach(b => b.disabled = true);
+          choicesEl.innerHTML = "";
+   if (choice.goto) {
+  setTimeout(() => { window.location.href = choice.goto; }, 600);
+  return;
+}
+          if (choice.end) {
+            setTimeout(() => {
+              addSystem("—— 委托已接取。请前往校园论坛 ——");
+            }, 500);
+            return;
+          }
+          setTimeout(() => showNode(choice.next), 600);
+        };
+        choicesEl.appendChild(btn);
+      });
+    }, delay);
+  }
+  // ===== 启动检查 =====
+function startApp() {
+    if (localStorage.getItem("shardChoice")) {
+        // 从枯叶堆选完碎片回来
+        loginPage.style.display = "none";
+        mainPage.style.display = "block";
+        meName.textContent = localStorage.getItem("playerName") || "无名氏";
+        contactCai.style.display = "flex";
+        contactCai.classList.remove("offline");
+        contactBadge.style.display = "none";
+        playEnding();
+    } else if (localStorage.getItem("deadleafDone") === "1") {
+        // 从枯叶堆发完消息回来
+        loginPage.style.display = "none";
+        mainPage.style.display = "block";
+        meName.textContent = localStorage.getItem("playerName") || "无名氏";
+        contactCai.style.display = "flex";
+        contactCai.classList.remove("offline");
+        contactBadge.style.display = "none";
+        showNode("deadleafReply");
+    }
+}startApp();
+</script>
+</body>
+</html>
