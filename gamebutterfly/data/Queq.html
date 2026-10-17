@@ -219,7 +219,8 @@
     <h1>Queq</h1>
     <div class="sub">有事没事，Queq一下</div>
     <input id="nickInput" placeholder="输入你的昵称" maxlength="12">
-    <button id="loginBtn">登录</button>
+<button id="loginBtn">登录</button>
+<button id="continueBtn" style="display:none; margin-top:12px; width:100%; padding:12px; background:transparent; color:#4a7cff; border:1px solid #4a7cff; border-radius:8px; cursor:pointer;">继续上次进度</button>
   </div>
 </div>
 
@@ -364,7 +365,7 @@ const endingScripts = {
         "我把我的账号密码给你。",
        "ID:caifendie",
        "密码:20110423",
-        "校园论坛网址是 [\链接]"
+        "校园论坛网址是 [链接]"
       ],
       choices: [
         { text: "你哥平时有什么习惯？", next: "habit" },
@@ -457,6 +458,7 @@ deadleaf3: {
   const contactCai = document.getElementById("contactCai");
   const contactBadge = document.getElementById("contactBadge");
   const messagesEl = document.getElementById("messages");
+  let chatHistory = []; // 用来记录每一步
   const choicesEl = document.getElementById("choices");
 
   loginBtn.onclick = () => {
@@ -485,13 +487,17 @@ deadleaf3: {
   };
 
   function addMessage(text, type) {
+    chatHistory.push({ type: "msg", text, cls: type });
+    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+
     const div = document.createElement("div");
     div.className = "msg " + type;
-    div.innerHTML= text.replace(/\[链接\]/g,'<a class="link"href="njxfz-luntan.html"target="_blank">njxfz-luntan.html</a>');
+    div.innerHTML = text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html"  target="_blank">njxfz-luntan.html</a>');
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-  function addSystem(text) { addMessage(text, "system"); }
+}
+
+function addSystem(text) { addMessage(text, "system"); }
 function playEnding() {
     const choice = localStorage.getItem("shardChoice");
     const data = endingScripts[choice];
@@ -632,60 +638,182 @@ function rechooseEnding() {
 
   const MSG_INTERVAL = 1500;
 
-  function showNode(key) {
+function showNode(key) {
+    localStorage.setItem("queqNode", key);
     const node = script[key];
+    
+    // 【关键修复】：在播放动画之前，先把这一整段话全存进历史记录
+    node.messages.forEach(text => {
+        // 检查历史里是不是已经存过这句了，防止重复
+        const exists = chatHistory.some(h => h.type === "msg" && h.text === text && h.cls === "them");
+        if (!exists) {
+            chatHistory.push({ type: "msg", text, cls: "them" });
+        }
+    });
+    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+
+    // 下面是原本的屏幕逐条播放动画
     choicesEl.innerHTML = "";
     node.messages.forEach((text, i) => {
-      setTimeout(() => { addMessage(text, "them"); }, i * MSG_INTERVAL);
+        setTimeout(() => { 
+            // 这里换成直接渲染 DOM，不走 addMessage，防止 addMessage 重复 push 历史
+            const div = document.createElement("div");
+            div.className = "msg them";
+            div.innerHTML = text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html"  target="_blank">njxfz-luntan.html</a>');
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }, i * MSG_INTERVAL);
     });
+
     const delay = node.messages.length * MSG_INTERVAL + 500;
     setTimeout(() => {
-      choicesEl.innerHTML = "";
-      node.choices.forEach(choice => {
-        const btn = document.createElement("button");
-        btn.textContent = choice.text;
-        btn.onclick = () => {
-          addMessage(choice.text, "me");
-          [...choicesEl.children].forEach(b => b.disabled = true);
-          choicesEl.innerHTML = "";
-   if (choice.goto) {
-  setTimeout(() => { window.location.href = choice.goto; }, 600);
-  return;
-}
-          if (choice.end) {
-            setTimeout(() => {
-              addSystem("—— 委托已接取。请前往校园论坛 ——");
-            }, 500);
-            return;
-          }
-          setTimeout(() => showNode(choice.next), 600);
-        };
-        choicesEl.appendChild(btn);
-      });
+        choicesEl.innerHTML = "";
+        node.choices.forEach(choice => {
+            const btn = document.createElement("button");
+            btn.textContent = choice.text;
+            btn.onclick = () => {
+                // 点选项时存历史
+                chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
+                chatHistory.push({ type: "choice", text: "", action: choice });
+                localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+
+                addMessage(choice.text, "me");
+                [...choicesEl.children].forEach(b => b.disabled = true);
+                choicesEl.innerHTML = "";
+                
+                if (choice.end) {
+                    setTimeout(() => { addSystem("—— 委托已接取。请前往校园论坛 ——"); }, 500);
+                    return;
+                }
+                if (choice.goto) {
+                    setTimeout(() => { window.location.href = choice.goto; }, 600);
+                    return;
+                }
+                setTimeout(() => showNode(choice.next), 600);
+            };
+            choicesEl.appendChild(btn);
+        });
     }, delay);
   }
   // ===== 启动检查 =====
-function startApp() {
+   function startApp() {
+    const hasLaterSave = localStorage.getItem("deadleafDone") === "1" || localStorage.getItem("shardChoice");
+    const savedHistory = localStorage.getItem("queqHistory");
+    const hasChatSave = savedHistory && JSON.parse(savedHistory).length > 0;
+
+    if (hasLaterSave || hasChatSave) {
+// 【新增】如果有名字，直接自动跳过登录页，恢复界面
+if (localStorage.getItem("playerName")) {
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("mainPage").style.display = "block";
+    document.getElementById("meName").textContent = localStorage.getItem("playerName");
+    
+    document.getElementById("contactCai").style.display = "flex";
+    document.getElementById("contactCai").classList.remove("offline");
+    document.getElementById("contactBadge").style.display = "none";
+
     if (localStorage.getItem("shardChoice")) {
-        // 从枯叶堆选完碎片回来
-        loginPage.style.display = "none";
-        mainPage.style.display = "block";
-        meName.textContent = localStorage.getItem("playerName") || "无名氏";
-        contactCai.style.display = "flex";
-        contactCai.classList.remove("offline");
-        contactBadge.style.display = "none";
-        playEnding();
-    } else if (localStorage.getItem("deadleafDone") === "1") {
-        // 从枯叶堆发完消息回来
-        loginPage.style.display = "none";
-        mainPage.style.display = "block";
-        meName.textContent = localStorage.getItem("playerName") || "无名氏";
-        contactCai.style.display = "flex";
-        contactCai.classList.remove("offline");
-        contactBadge.style.display = "none";
-        showNode("deadleafReply");
+    // 如果选过碎片了，直接播结局
+    playEnding();
+} else if (localStorage.getItem("deadleafDone") === "1" && localStorage.getItem("queqNode") !== "deadleafReply" && localStorage.getItem("queqNode") !== "deadleaf2" && localStorage.getItem("queqNode") !== "deadleaf3") {
+    // 如果刚从枯叶堆回来，且还没开始后续对话，触发新对话
+    showNode("deadleafReply");
+} else {
+    // 否则恢复之前的聊天记录
+    chatHistory = JSON.parse(localStorage.getItem("queqHistory") || "[]");
+    renderHistory();
+}
+return;// 直接结束，不显示“继续进度”按钮了
+}
+        const btn = document.getElementById("continueBtn");
+        if (btn) {
+            btn.style.display = "block"; 
+            const savedName = localStorage.getItem("playerName");
+            if (savedName) document.getElementById("nickInput").value = savedName;
+
+            btn.onclick = () => {
+                const name = document.getElementById("nickInput").value.trim() || "无名氏";
+                localStorage.setItem("playerName", name);
+                document.getElementById("loginPage").style.display = "none";
+                document.getElementById("mainPage").style.display = "block";
+                document.getElementById("meName").textContent = name;
+                
+                document.getElementById("contactCai").style.display = "flex";
+                document.getElementById("contactCai").classList.remove("offline");
+                document.getElementById("contactBadge").style.display = "none";
+
+                if (localStorage.getItem("shardChoice")) {
+                    playEnding();
+                    return;
+                }
+
+                chatHistory = JSON.parse(savedHistory || "[]");
+                renderHistory();
+            };
+        }
     }
-}startApp();
+}
+
+function renderHistory() {
+    messagesEl.innerHTML = "";
+    choicesEl.innerHTML = "";
+    let lastChoiceAction = null;
+
+    chatHistory.forEach(item => {
+        if (item.type === "msg") {
+            const div = document.createElement("div");
+            div.className = "msg " + item.cls;
+            div.innerHTML = item.text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html"  target="_blank">njxfz-luntan.html</a>');
+            messagesEl.appendChild(div);
+        } else if (item.type === "choice" && item.action) {
+            lastChoiceAction = item.action;
+        }
+    });
+
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // 如果最后一条是“选项消失”的记录，说明停在选择那一步，要把选项渲染出来
+    if (lastChoiceAction) {
+        const nodeKey = localStorage.getItem("queqNode");
+        const node = script[nodeKey];
+        if (node && node.choices) {
+            node.choices.forEach(choice => {
+                const btn = document.createElement("button");
+                btn.textContent = choice.text;
+                btn.onclick = () => {
+                    chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
+                    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+                    addMessage(choice.text, "me");
+                    
+                    [...choicesEl.children].forEach(b => b.disabled = true);
+                    choicesEl.innerHTML = "";
+                    
+                    chatHistory.push({ type: "choice", text: "", action: choice });
+                    localStorage.setItem("queqHistory", JSON.stringify(chatHistory));
+
+                    if (choice.end) {
+                        setTimeout(() => { addSystem("—— 委托已接取。请前往校园论坛 ——"); }, 500);
+                        return;
+                    }
+                    if (choice.goto) {
+                        setTimeout(() => { window.location.href = choice.goto; }, 600);
+                        return;
+                    }
+                    setTimeout(() => showNode(choice.next), 600);
+                };
+                choicesEl.appendChild(btn);
+            });
+        }
+    } else if (localStorage.getItem("deadleafDone") === "1") {
+        showNode("deadleafReply");
+    } else {
+        const nodeKey = localStorage.getItem("queqNode");
+        if (nodeKey) showNode(nodeKey);
+    }
+}
+
+// 恢复上次未点的选项
+startApp();
 </script>
 </body>
 </html>
