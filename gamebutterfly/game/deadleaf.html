@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>deadleaf</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: #0d0a06;
+    color: #b8956a;
+    font-family: "Courier New", "MS Gothic", "PingFang SC", monospace;
+    overflow: hidden;
+  }
+
+  /* 扫描线 */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,.4) 0px,
+      rgba(0,0,0,.4) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* 暗角 */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,.95) 100%);
+    pointer-events: none;
+    z-index: 99;
+  }
+
+  /* 枯叶背景层 */
+  #leaves {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .leaf {
+    position: absolute;
+    opacity: .15;
+    filter: blur(.5px);
+    animation: leafFall linear infinite;
+  }
+  @keyframes leafFall {
+    0%   { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+    10%  { opacity: .18; }
+    90%  { opacity: .18; }
+    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+  }
+
+  /* 噪点 */
+  #noise {
+    position: fixed; inset: -50%;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(140,90,40,.06) 0, transparent 2%),
+      radial-gradient(circle at 70% 60%, rgba(140,90,40,.05) 0, transparent 2%),
+      radial-gradient(circle at 40% 80%, rgba(140,90,40,.06) 0, transparent 2%);
+    animation: noiseShift .3s steps(3) infinite;
+    pointer-events: none;
+    z-index: 98;
+  }
+  @keyframes noiseShift {
+    0%   { transform: translate(0,0); }
+    33%  { transform: translate(-2%, 1%); }
+    66%  { transform: translate(1%, -2%); }
+    100% { transform: translate(0,0); }
+  }
+
+  #stage {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    overflow-y: auto;
+  }
+
+  .panel {
+    max-width: 720px;
+    width: 100%;
+    line-height: 2;
+    font-size: 18px;
+    letter-spacing: 1.5px;
+  }
+
+  h1 {
+    font-size: 44px;
+    letter-spacing: 12px;
+    color: #d4a76a;
+    text-shadow: 0 0 10px #8a5a20, 0 0 30px #4a2a10;
+    margin-bottom: 10px;
+    font-weight: normal;
+  }
+
+  .sub {
+    color: #6b4a2a;
+    font-size: 15px;
+    letter-spacing: 5px;
+    margin-bottom: 36px;
+  }
+
+  .line {
+    color: #b8956a;
+    margin-bottom: 8px;
+    min-height: 2em;
+    font-size: 18px;
+  }
+  .line.dim { color: #5a4028; }
+  .line.warn { color: #d4a76a; }
+  .line.danger { color: #c44a2a; text-shadow: 0 0 8px #6a1a00; }
+  .line.glow {
+    color: #e8c890;
+    text-shadow: 0 0 12px #8a5a20;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 10px;
+    height: 20px;
+    background: #d4a76a;
+    vertical-align: middle;
+    animation: blink .8s steps(1) infinite;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* 输入 */
+  .input-row {
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #6b4a2a;
+    padding-bottom: 8px;
+  }
+  .input-row .prefix {
+    color: #d4a76a;
+    font-size: 18px;
+  }
+  #answer {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e8c890;
+    font-family: inherit;
+    font-size: 18px;
+    letter-spacing: 3px;
+    caret-color: #d4a76a;
+  }
+
+  .hint-text {
+    color: #5a4028;
+    font-size: 14px;
+    letter-spacing: 2px;
+    margin-top: 6px;
+  }
+
+  /* 漂浮幽灵帖 */
+  .ghost {
+    position: fixed;
+    color: #4a2f1a;
+    font-size: 14px;
+    pointer-events: none;
+    white-space: nowrap;
+    animation: float 8s linear infinite;
+    opacity: 0;
+    z-index: 0;
+    font-family: "Courier New", monospace;
+  }
+  @keyframes float {
+    0%   { opacity: 0; transform: translateY(20px); }
+    20%  { opacity: .8; }
+    80%  { opacity: .8; }
+    100% { opacity: 0; transform: translateY(-40px); }
+  }
+
+  /* 许愿池 */
+  .pool {
+    border: 1px solid #6b4a2a;
+    padding: 22px 26px;
+    margin: 26px 0;
+    background: rgba(30,20,10,.6);
+    position: relative;
+    box-shadow: 0 0 30px rgba(120,80,30,.15) inset;
+  }
+  .pool::before {
+    content: "◈ 抵 押 记 录 ◈";
+    position: absolute;
+    top: -11px;
+    left: 20px;
+    background: #0d0a06;
+    padding: 0 10px;
+    font-size: 14px;
+    color: #d4a76a;
+    letter-spacing: 5px;
+  }
+  .pool-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 17px;
+  }
+  .pool-row .k { color: #6b4a2a; min-width: 90px; }
+  .pool-row .v { color: #e8c890; }
+  .pool-row .v.active {
+    color: #e8c890;
+    text-shadow: 0 0 10px #8a5a20;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    50% { opacity: .5; }
+  }
+
+  /* 碎片选项 */
+  .shards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .shard {
+    border: 1px solid #6b4a2a;
+    padding: 18px 22px;
+    cursor: pointer;
+    transition: .25s;
+    background: rgba(30,20,10,.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .shard::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(200,150,80,.1), transparent);
+    transition: .5s;
+  }
+  .shard:hover::before { left: 100%; }
+  .shard:hover {
+    border-color: #d4a76a;
+    background: rgba(60,40,20,.5);
+    box-shadow: 0 0 24px rgba(200,150,80,.25) inset;
+  }
+  .shard .shard-title {
+    color: #e8c890;
+    font-size: 18px;
+    margin-bottom: 6px;
+    letter-spacing: 3px;
+  }
+  .shard .shard-desc {
+    color: #8a6a48;
+    font-size: 14px;
+    line-height: 1.7;
+    letter-spacing: 1px;
+  }
+
+  /* Queq 消息块 */
+  .queq-block {
+    border-left: 3px solid #d4a76a;
+    padding: 12px 18px;
+    margin: 20px 0;
+    background: rgba(40,25,10,.5);
+    font-size: 17px;
+    line-height: 1.9;
+  }
+  .queq-block .qq-name {
+    color: #d4a76a;
+    font-size: 15px;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .queq-block .qq-msg {
+    color: #e8c890;
+    margin-bottom: 6px;
+  }
+  .queq-block .qq-me {
+    color: #8a6a48;
+    text-align: right;
+    margin-top: 6px;
+  }
+
+  .fade-in { animation: fadeIn .6s ease-out; }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .shake { animation: shake .4s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  a { color: #d4a76a; }
+</style>
+</head>
+<body>
+
+<div id="leaves"></div>
+<div id="noise"></div>
+<div id="stage"></div>
+
+<script>
+  const stage = document.getElementById("stage");
+
+  // ============ 落叶背景 ============
+  const leafShapes = [
+    // 用 SVG 画简单叶子
+    '<svg width="40" height="40" viewBox="0 0 40 40"><path d="M20 5 Q35 15 30 30 Q25 38 20 35 Q15 38 10 30 Q5 15 20 5 Z" fill="#5a3a1a"/></svg>',
+    '<svg width="35" height="50" viewBox="0 0 35 50"><ellipse cx="17" cy="25" rx="12" ry="22" fill="#6b4a2a"/></svg>',
+    '<svg width="45" height="45" viewBox="0 0 45 45"><path d="M22 4 Q40 20 35 38 Q28 45 22 42 Q16 45 9 38 Q4 20 22 4 Z" fill="#4a2f1a"/></svg>'
+  ];
+  function spawnLeaf() {
+    const el = document.createElement("div");
+    el.className = "leaf";
+    el.innerHTML = leafShapes[Math.floor(Math.random() * leafShapes.length)];
+    el.style.left = (Math.random() * 100) + "%";
+    el.style.animationDuration = (15 + Math.random() * 20) + "s";
+    el.style.animationDelay = (Math.random() * 5) + "s";
+    document.getElementById("leaves").appendChild(el);
+    setTimeout(() => el.remove(), 40000);
+  }
+  for (let i = 0; i < 12; i++) spawnLeaf();
+  setInterval(spawnLeaf, 3000);
+
+  // ============ 幽灵帖 ============
+  function spawnGhost() {
+    const texts = [
+      "[已删除] 有人吗",
+      "[已删除] 算了",
+      "[已删除] 我不想说话",
+      "[已删除] 对不起",
+      "[已删除] 别找我",
+      "[已删除] ..................",
+      "[已删除] 晚安",
+      "[已删除] 好累",
+      "[已删除] 我没事",
+      "[已删除] 就当我没来过"
+    ];
+    const t = texts[Math.floor(Math.random() * texts.length)];
+    const el = document.createElement("div");
+    el.className = "ghost";
+    el.textContent = t;
+    el.style.left = (Math.random() * 80 + 5) + "%";
+    el.style.top = (Math.random() * 70 + 15) + "%";
+    el.style.animationDuration = (6 + Math.random() * 6) + "s";
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 12000);
+  }
+  setInterval(spawnGhost, 2000);
+
+  // ============ 工具 ============
+  function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function typeLine(parent, text, cls, delay) {
+    return new Promise(resolve => {
+      const div = document.createElement("div");
+      div.className = "line " + (cls || "");
+      parent.appendChild(div);
+      let i = 0;
+      const timer = setInterval(() => {
+        div.textContent = text.slice(0, i + 1);
+        i++;
+        if (i >= text.length) {
+          clearInterval(timer);
+          setTimeout(resolve, delay || 250);
+        }
+      }, 50);
+    });
+  }
+
+  function makeInput(p, placeholder) {
+    const row = document.createElement("div");
+    row.className = "input-row";
+    row.innerHTML = `<span class="prefix">&gt;</span><input id="answer" autocomplete="off" spellcheck="false" placeholder="${placeholder || ''}">`;
+    p.appendChild(row);
+    setTimeout(() => {
+      const inp = document.getElementById("answer");
+      if (inp) inp.focus();
+    }, 150);
+    return row;
+  }
+
+  // ============ Stage 0：加载 ============
+  async function stageLoading() {
+    stage.innerHTML = '<div class="panel" id="p"></div>';
+    const p = document.getElementById("p");
+    await typeLine(p, "> 正在连接……", "dim", 400);
+    await typeLine(p, "> 连接失败。", "dim", 400);
+    await typeLine(p, "> 重试中……", "dim", 400);
+    await wait(700);
+    await typeLine(p, "> 连接成功。", "glow", 700);
+    await wait(500);
+    await typeLine(p, "> 欢迎来到枯叶堆。", "glow", 1000);
+    await wait(600);
+    stageIntro();
+  }
+
+  // ============ Stage 1：介绍 ============
+  async function stageIntro() {
+    stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
+    const p = document.getElementById("p");
+    await typeLine(p, "这里堆放着被删除的一切。", "dim", 800);
+    await typeLine(p, "被遗忘的帖子。", "dim", 500);
+    await typeLine(p, "被封禁的账号。", "dim", 500);
+    await typeLine(p, "被所有人忘记的人。", "dim", 1000);
+    await wait(800);
+    stageLogin();
+  }
+
+  // ============ Stage 2：登录（姓名+密码+要保护的人） ============
+  async function stageLogin() {
+    stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
+    const p = document.getElementById("p");
+
+    await typeLine(p, "要进入枯叶堆，", "dim", 500);
+    await typeLine(p, "你需要进行身份认证。", "warn", 700);
+    await wait(400);
+
+    const fields = [
+      { key: "acc", label: "姓名", ph: "输入姓名" },
+      { key: "pwd", label: "密码", ph: "输入密码" },
+      { key: "protect", label: "要保护的人", ph: "输入姓名" }
+    ];
+
+    const form = document.createElement("div");
+    form.style.marginTop = "24px";
+    p.appendChild(form);
+
+    fields.forEach(f => {
+      const row = document.createElement("div");
+      row.className = "input-row";
+      row.innerHTML = `<span class="prefix">${f.label} &gt;</span><input class="form-input" data-key="${f.key}" autocomplete="off" spellcheck="false" placeholder="${f.ph}">`;
+      form.appendChild(row);
+    });
+
+    const btn = document.createElement("div");
+    btn.className = "hint-text";
+    btn.style.marginTop = "20px";
+    btn.innerHTML = '按 Enter 提交';
+    form.appendChild(btn);
+
+    setTimeout(() => {
+      const first = form.querySelector('[data-key="acc"]');
+      if (first) first.focus();
+    }, 200);
+
+    const inputs = form.querySelectorAll(".form-input");
+
+    function submit() {
+      const acc = form.querySelector('[data-key="acc"]').value.trim();
+      const pwd = form.querySelector('[data-key="pwd"]').value.trim();
+      const prot = form.querySelector('[data-key="protect"]').value.trim();
+
+      const okAcc = (acc === "蔡惺明");
+      const okPwd = (pwd === "rebirth");
+      const okProt = (prot === "蔡惜瞳" || prot === "惜瞳");
+
+      if (okAcc && okPwd && okProt) {
+        stageReason();
+        return;
+      }
+
+      const line = document.createElement("div");
+      line.className = "line danger";
+      if (!okAcc) line.textContent = "枯叶堆没有这个人。";
+      else if (!okPwd) line.textContent = "密码不对。";
+      else line.textContent = "这不是你想保护的人。";
+      p.appendChild(line);
+      p.classList.add("shake");
+      setTimeout(() => p.classList.remove("shake"), 400);
+      inputs.forEach(i => i.value = "");
+      inputs[0].focus();
+    }
+
+    inputs.forEach(inp => {
+      inp.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+          const idx = [...inputs].indexOf(inp);
+          if (idx < inputs.length - 1) {
+            inputs[idx + 1].focus();
+          } else {
+            submit();
+          }
+        }
+      });
+    });
+  }
+
+  // ============ Stage 3：查看原因 ============
+  async function stageReason() {
+    stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
+    const p = document.getElementById("p");
+
+    await typeLine(p, "验证通过。", "glow", 900);
+    await wait(500);
+    await typeLine(p, "检测到 蔡惺明 已化蛹，所以你是外来者。启动讲解模式……", "dim", 800);
+    await wait(600);
+
+    const pool = document.createElement("div");
+    pool.className = "pool";
+    pool.innerHTML = `
+      <div class="pool-row"><span class="k">抵押人</span><span class="v">蔡惺明 </span></div>
+      <div class="pool-row"><span class="k">抵押物</span><span class="v">自身存在</span></div>
+      <div class="pool-row"><span class="k">受益人</span><span class="v">蔡惜瞳 </span></div>
+      <div class="pool-row"><span class="k">愿　望</span><span class="v">高中三年不受欺负，有很好的朋友，每天都能笑出来</span></div>
+      <div class="pool-row"><span class="k">状　态</span><span class="v active">生效中</span></div>
+    `;
+    p.appendChild(pool);
+
+    await wait(900);
+    await typeLine(p, "他签下这份抵押的时候，", "dim", 700);
+    await typeLine(p, "没有告诉任何人。", "dim", 900);
+    await wait(600);
+    await typeLine(p, "你知道为什么吗？", "warn", 800);
+    await wait(800);
+
+    const reasons = document.createElement("div");
+    reasons.className = "queq-block";
+    reasons.innerHTML = `
+      <div class="qq-name">— 万能小明 · 隐藏日记 —</div>
+      <div class="qq-msg">我在这所学校待了三年。</div>
+      <div class="qq-msg">我知道这里是什么样。</div>
+      <div class="qq-msg">可她没别的地方可以上。</div>
+      <div class="qq-msg">她比我内向。她不会说出来的。</div>
+      <div class="qq-msg">她只会傻笑。</div>
+      <div class="qq-msg">如果留在这里能让她幸福，</div>
+      <div class="qq-msg">那就让我抵押自身吧。</div>
+    `;
+    p.appendChild(reasons);
+
+    await wait(1500);
+    await typeLine(p, "……", "dim", 1000);
+    await wait(800);
+    stageQueq();
+  }
+
+  // ============ Stage 4：发 queq ============
+  async function stageQueq() {
+    stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
+    const p = document.getElementById("p");
+
+    await typeLine(p, "外来者。", "dim", 600);
+    await typeLine(p, "系统知道你是为何而来。", "dim", 700);
+    await wait(500);
+    await typeLine(p, "事情的经过已经向你说明，", "glow", 800);
+    await wait(600);
+    await typeLine(p, "你可以给受益人 蔡惜瞳 发一条消息。", "warn", 900);
+    await wait(600);
+
+    // 玩家输入
+    const row = document.createElement("div");
+    row.className = "input-row";
+    row.innerHTML = `<span class="prefix">发给 菜粉蝶 &gt;</span><input id="answer" autocomplete="off" spellcheck="false" placeholder="输入你想说的">`;
+    p.appendChild(row);
+    setTimeout(() => document.getElementById("answer").focus(), 200);
+
+    const hint = document.createElement("div");
+    hint.className = "hint-text";
+    hint.style.marginTop = "10px";
+    hint.textContent = "按 Enter 发送";
+    p.appendChild(hint);
+
+    document.getElementById("answer").addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      const val = document.getElementById("answer").value.trim();
+      if (!val) return;
+      stageReply(val);
+    });
+  }
+
+  // ============ Stage 5：妹妹回复 ============
+ async function stageReply(playerMsg) {
+    stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
+    const p = document.getElementById("p");
+
+    await typeLine(p, "发送中……", "dim", 800);
+    await wait(600);
+    await typeLine(p, "已送达。", "glow", 800);
+    await wait(700);
+    await typeLine(p, "回复不会显示在枯叶堆里。", "dim", 700);
+    await typeLine(p, "请返回Queq查看。", "warn", 900);
+    await wait(600);
+
+    localStorage.setItem("deadleafDone", "1");
+    localStorage.setItem("deadleafPlayerMsg", playerMsg);
+
+    const btn = document.createElement("div");
+    btn.className = "hint-text";
+    btn.style.marginTop = "24px";
+    btn.style.cursor = "pointer";
+    btn.innerHTML = '&gt; 打开 queq';
+    btn.onclick = () => { window.location.href = "queq.html"; };
+    p.appendChild(btn);
+}
+  // ============ Stage 6：碎片选择 ============
+  async function stageShards() {
+    stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
+    const p = document.getElementById("p");
+
+    await typeLine(p, "若想赎回 蔡惺明", "dim", 700);
+    await typeLine(p, "须先从以下三样东西中选择一样，投入枯叶堆。", "dim", 700);
+    await wait(600);
+    await typeLine(p, "只有最能代表他的那一个，能带他回来。", "warn", 900);
+    await wait(800);
+
+    const shards = document.createElement("div");
+    shards.className = "shards";
+    shards.innerHTML = `
+      <div class="shard" data-shard="posts">
+        <div class="shard-title">一叠实体的帖子</div>
+        <div class="shard-desc">发黄的，被雨水泡过的。边角有撕扯的痕迹。最上面一张写着：「我妹把我充电线咬断了。」</div>
+      </div>
+      <div class="shard" data-shard="sign">
+        <div class="shard-title">一行签名</div>
+        <div class="shard-desc">刻在枯叶堆最底部的字。已经被土埋了一半。依稀看得出：「永不化蝶的菜粉虫。」</div>
+      </div>
+      <div class="shard" data-shard="draft">
+        <div class="shard-title">一本日记</div>
+        <div class="shard-desc">内容是论坛里显示的日记。墨迹很新，像刚写的。</div>
+      </div>
+    `;
+    p.appendChild(shards);
+
+    shards.querySelectorAll(".shard").forEach(s => {
+      s.onclick = () => {
+        const choice = s.dataset.shard;
+        localStorage.setItem("shardChoice", choice);
+        showEnding(choice);
+      };
+    });
+  }
+
+  // ============ 结局：跳回Queq ============
+  async function showEnding(choice) {
+    localStorage.setItem("shardChoice", choice);
+    window.location.href = "queq.html";
+}
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  // 启动判断
+if (localStorage.getItem("shardChoice")) {
+  // 选过碎片了，回 queq 看结局
+  window.location.href = "queq.html";
+} else if (localStorage.getItem("deadleafDone") === "1") {
+  // 从 queq 回来，直接进碎片选择
+  stageShards();
+} else {
+  // 第一次来，走完整流程
+  stageLoading();
+}
+</script>
+</body>
+</html>
