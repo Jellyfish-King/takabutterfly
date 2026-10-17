@@ -268,7 +268,7 @@
   }
 
   /* Queq 消息块 */
-  .queq-block {
+  .Queq-block {
     border-left: 3px solid #d4a76a;
     padding: 12px 18px;
     margin: 20px 0;
@@ -276,17 +276,17 @@
     font-size: 17px;
     line-height: 1.9;
   }
-  .queq-block .qq-name {
+  .Queq-block .qq-name {
     color: #d4a76a;
     font-size: 15px;
     margin-bottom: 8px;
     letter-spacing: 2px;
   }
-  .queq-block .qq-msg {
+  .Queq-block .qq-msg {
     color: #e8c890;
     margin-bottom: 6px;
   }
-  .queq-block .qq-me {
+  .Queq-block .qq-me {
     color: #8a6a48;
     text-align: right;
     margin-top: 6px;
@@ -546,7 +546,7 @@ btn.onclick = submit; // 绑定点击
     await wait(800);
 
     const reasons = document.createElement("div");
-    reasons.className = "queq-block";
+    reasons.className = "Queq-block";
     reasons.innerHTML = `
       <div class="qq-name">— 万能小明 · 隐藏日记 —</div>
       <div class="qq-msg">我在这所学校待了三年。</div>
@@ -565,7 +565,7 @@ btn.onclick = submit; // 绑定点击
     stageQueq();
   }
 
-  // ============ Stage 4：发 queq ============
+  // ============ Stage 4：发 Queq ============
   async function stageQueq() {
     stage.innerHTML = '<div class="panel fade-in" id="p"></div>';
     const p = document.getElementById("p");
@@ -623,8 +623,8 @@ btn.onclick = () => {
     btn.className = "hint-text";
     btn.style.marginTop = "24px";
     btn.style.cursor = "pointer";
-    btn.innerHTML = '&gt; 打开 queq';
-    btn.onclick = () => { window.location.href = "queq.html"; };
+    btn.innerHTML = '&gt; 打开 Queq';
+    btn.onclick = () => { window.location.href = "Queq.html"; };
     p.appendChild(btn);
 }
   // ============ Stage 6：碎片选择 ============
@@ -668,7 +668,7 @@ btn.onclick = () => {
   // ============ 结局：跳回Queq ============
   async function showEnding(choice) {
     localStorage.setItem("shardChoice", choice);
-    window.location.href = "queq.html";
+    window.location.href = "Queq.html";
 }
 
   function escapeHtml(s) {
@@ -679,10 +679,10 @@ btn.onclick = () => {
 
   // 启动判断
 if (localStorage.getItem("shardChoice")) {
-  // 选过碎片了，回 queq 看结局
-  window.location.href = "queq.html";
+  // 选过碎片了，回 Queq 看结局
+  window.location.href = "Queq.html";
 } else if (localStorage.getItem("deadleafDone") === "1") {
-  // 从 queq 回来，直接进碎片选择
+  // 从 Queq 回来，直接进碎片选择
   stageShards();
 } else {
   // 第一次来，走完整流程
