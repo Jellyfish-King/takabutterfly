@@ -370,7 +370,7 @@ const endingScripts = {
       choices: [
         { text: "你哥平时有什么习惯？", next: "habit" },
         { text: "你哥有没有朋友？", next: "friend" },
-        { text: "你哥的密码可能是什么？", next: "password" }
+        { text: "你哥有没有提过什么奇怪的事？", next: "weird" }
       ]
     },
     habit: {
@@ -378,7 +378,7 @@ const endingScripts = {
         "他从来不说学校的事。",
         "你帮我找找他的论坛吧。"
       ],
-      choices: [{ text: "好,我去看看。", next: "end" }]
+      choices: [{ text: "他的密码可能是什么?", next: "password" }]
     },
     friend: {
       messages: [
@@ -386,24 +386,29 @@ const endingScripts = {
         "他从来不说学校的事。",
         "你帮我找找他的论坛吧。"
       ],
-      choices: [{ text: "好,我去看看。", next: "end" }]
+      choices: [{ text: "他的密码可能是什么？", next: "password" }]
+    },
+weird: {
+      messages: [
+        "没有",
+        "他从来不说学校的事。",
+        "你帮我找找他的论坛吧。"
+      ],
+      choices: [{ text: "他的密码可能是什么？", next: "password" }]
     },
     password: {
       messages: [
         "我不知道。",
-        "他从来不说学校的事。",
-       "你帮我找找他的论坛吧。"
+        "他每次输密码都要躲着我，说是不好意思",
+       "他损我的时候倒挺好意思的。"
       ],
-      choices: [{ text: "好,我去看看。", next: "end" }]
+      choices: [{ text: "我去看看，等我消息。", next: "end" }]
     },
     end: {
       messages: [
-        "我上课了。终端要收了。查到了给我留言，我下课就会看。",
+        "我上课了，终端要收了。查到了给我留言，我下课就会看。",
         "【自动回复】该同学正在上课,请下课后联系。"
-      ],
-choices:[
-{text:"(前往校园论坛)",end:true}
-]
+      ]
     },
 
 deadleafReply: {
@@ -487,18 +492,16 @@ deadleaf3: {
   };
 
   function addMessage(text, type) {
-    chatHistory.push({ type: "msg", text, cls: type });
-    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
-
-    const div = document.createElement("div");
-    div.className = "msg " + type;
-    div.innerHTML = text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html"  target="_blank">njxfz-luntan.html</a>');
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+  div.innerHTML = text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html" target="_blank" style="color:#4a7cff;text-decoration:underline;cursor:pointer;">njxfz-luntan.html</a>');
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function addSystem(text) { addMessage(text, "system"); }
 function playEnding() {
+localStorage.setItem("QueqNode", "ending");
     const choice = localStorage.getItem("shardChoice");
     const data = endingScripts[choice];
     if (!data) return;
@@ -627,8 +630,20 @@ function playIdentityReveal(callback) {
     }, 4200);
 }
 function closeEnding() {
+    // 暴力清除所有相关的本地存档
     localStorage.removeItem("deadleafDone");
     localStorage.removeItem("shardChoice");
+    localStorage.removeItem("QueqNode");
+    localStorage.removeItem("QueqHistory");
+    localStorage.removeItem("unlock_diary_2");
+    localStorage.removeItem("unlock_diary_4");
+    localStorage.removeItem("egg_asked");
+    localStorage.removeItem("egg_gave_answer");
+    localStorage.removeItem("name_solved");
+    localStorage.removeItem("nameErrCount");
+    localStorage.removeItem("playerName");   
+    
+    // 刷新页面，回到最初的登录界面
     location.reload();
 }
 function rechooseEnding() {
@@ -642,157 +657,42 @@ function showNode(key) {
     localStorage.setItem("QueqNode", key);
     const node = script[key];
     
-    // 【关键修复】：在播放动画之前，先把这一整段话全存进历史记录
-    node.messages.forEach(text => {
-        // 检查历史里是不是已经存过这句了，防止重复
-        const exists = chatHistory.some(h => h.type === "msg" && h.text === text && h.cls === "them");
-        if (!exists) {
-            chatHistory.push({ type: "msg", text, cls: "them" });
-        }
-    });
-    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
-
-    // 下面是原本的屏幕逐条播放动画
     choicesEl.innerHTML = "";
-    node.messages.forEach((text, i) => {
-        setTimeout(() => { 
-            // 这里换成直接渲染 DOM，不走 addMessage，防止 addMessage 重复 push 历史
-            const div = document.createElement("div");
-            div.className = "msg them";
-            div.innerHTML = text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html"  target="_blank">njxfz-luntan.html</a>');
-            messagesEl.appendChild(div);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-        }, i * MSG_INTERVAL);
-    });
+   let currentDelay = 0;
+node.messages.forEach((text) => {
+    setTimeout(() => { 
+        addMessage(text, "them");
+        chatHistory.push({ type: "msg", text, cls: "them" });
+        localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+    }, currentDelay);
+    
+    currentDelay += MSG_INTERVAL;
+    // 核心：如果在说“我现在就去看”，额外多停顿 2000 毫秒（2秒）
+    if (text === "我现在就去看") {
+        currentDelay += 2000; 
+    }
+});
 
-    const delay = node.messages.length * MSG_INTERVAL + 500;
+// 计算选项延迟时，也要把多加的时间算进去
+let totalExtraDelay = node.messages.includes("我现在就去看") ? 2000 : 0;
+const delay = node.messages.length * MSG_INTERVAL + totalExtraDelay + 500;
     setTimeout(() => {
         choicesEl.innerHTML = "";
-        node.choices.forEach(choice => {
-            const btn = document.createElement("button");
-            btn.textContent = choice.text;
-            btn.onclick = () => {
-                // 点选项时存历史
-                chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
-                chatHistory.push({ type: "choice", text: "", action: choice });
-                localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
-
-                addMessage(choice.text, "me");
-                [...choicesEl.children].forEach(b => b.disabled = true);
-                choicesEl.innerHTML = "";
-                
-                if (choice.end) {
-                    setTimeout(() => { addSystem("—— 委托已接取。请前往校园论坛 ——"); }, 500);
-                    return;
-                }
-                if (choice.goto) {
-                    setTimeout(() => { window.location.href = choice.goto; }, 600);
-                    return;
-                }
-                setTimeout(() => showNode(choice.next), 600);
-            };
-            choicesEl.appendChild(btn);
-        });
-    }, delay);
-  }
-  // ===== 启动检查 =====
-   function startApp() {
-    const hasLaterSave = localStorage.getItem("deadleafDone") === "1" || localStorage.getItem("shardChoice");
-    const savedHistory = localStorage.getItem("QueqHistory");
-    const hasChatSave = savedHistory && JSON.parse(savedHistory).length > 0;
-
-    if (hasLaterSave || hasChatSave) {
-// 【新增】如果有名字，直接自动跳过登录页，恢复界面
-if (localStorage.getItem("playerName")) {
-    document.getElementById("loginPage").style.display = "none";
-    document.getElementById("mainPage").style.display = "block";
-    document.getElementById("meName").textContent = localStorage.getItem("playerName");
-    
-    document.getElementById("contactCai").style.display = "flex";
-    document.getElementById("contactCai").classList.remove("offline");
-    document.getElementById("contactBadge").style.display = "none";
-
-    if (localStorage.getItem("shardChoice")) {
-    // 如果选过碎片了，直接播结局
-    playEnding();
-} else if (localStorage.getItem("deadleafDone") === "1" && localStorage.getItem("QueqNode") !== "deadleafReply" && localStorage.getItem("QueqNode") !== "deadleaf2" && localStorage.getItem("QueqNode") !== "deadleaf3") {
-    // 如果刚从枯叶堆回来，且还没开始后续对话，触发新对话
-    showNode("deadleafReply");
-} else {
-    // 否则恢复之前的聊天记录
-    chatHistory = JSON.parse(localStorage.getItem("QueqHistory") || "[]");
-    renderHistory();
-}
-return;// 直接结束，不显示“继续进度”按钮了
-}
-        const btn = document.getElementById("continueBtn");
-        if (btn) {
-            btn.style.display = "block"; 
-            const savedName = localStorage.getItem("playerName");
-            if (savedName) document.getElementById("nickInput").value = savedName;
-
-            btn.onclick = () => {
-                const name = document.getElementById("nickInput").value.trim() || "无名氏";
-                localStorage.setItem("playerName", name);
-                document.getElementById("loginPage").style.display = "none";
-                document.getElementById("mainPage").style.display = "block";
-                document.getElementById("meName").textContent = name;
-                
-                document.getElementById("contactCai").style.display = "flex";
-                document.getElementById("contactCai").classList.remove("offline");
-                document.getElementById("contactBadge").style.display = "none";
-
-                if (localStorage.getItem("shardChoice")) {
-                    playEnding();
-                    return;
-                }
-
-                chatHistory = JSON.parse(savedHistory || "[]");
-                renderHistory();
-            };
-        }
-    }
-}
-
-function renderHistory() {
-    messagesEl.innerHTML = "";
-    choicesEl.innerHTML = "";
-    let lastChoiceAction = null;
-
-    chatHistory.forEach(item => {
-        if (item.type === "msg") {
-            const div = document.createElement("div");
-            div.className = "msg " + item.cls;
-            div.innerHTML = item.text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html"  target="_blank">njxfz-luntan.html</a>');
-            messagesEl.appendChild(div);
-        } else if (item.type === "choice" && item.action) {
-            lastChoiceAction = item.action;
-        }
-    });
-
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    // 如果最后一条是“选项消失”的记录，说明停在选择那一步，要把选项渲染出来
-    if (lastChoiceAction) {
-        const nodeKey = localStorage.getItem("QueqNode");
-        const node = script[nodeKey];
-        if (node && node.choices) {
+        if (node.choices) {
             node.choices.forEach(choice => {
                 const btn = document.createElement("button");
                 btn.textContent = choice.text;
                 btn.onclick = () => {
+                    // 这里只存一次！绝不重复！
+                    addMessage(choice.text, "me");
                     chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
                     localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
-                    addMessage(choice.text, "me");
-                    
+
                     [...choicesEl.children].forEach(b => b.disabled = true);
                     choicesEl.innerHTML = "";
                     
-                    chatHistory.push({ type: "choice", text: "", action: choice });
-                    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
-
                     if (choice.end) {
-                        setTimeout(() => { addSystem("—— 委托已接取。请前往校园论坛 ——"); }, 500);
+                        addSystem("—— 委托已接取。请前往校园论坛 ——");
                         return;
                     }
                     if (choice.goto) {
@@ -804,15 +704,175 @@ function renderHistory() {
                 choicesEl.appendChild(btn);
             });
         }
-    } else if (localStorage.getItem("deadleafDone") === "1") {
+    }, delay);
+}
+  // ===== 启动检查 =====
+function startApp() {
+    const savedName = localStorage.getItem("playerName");
+    if (!savedName) return; // 没名字就在登录页
+
+    // 1. 自动登录
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("mainPage").style.display = "block";
+    document.getElementById("meName").textContent = savedName;
+    document.getElementById("contactCai").style.display = "flex";
+    document.getElementById("contactCai").classList.remove("offline");
+    document.getElementById("contactBadge").style.display = "none";
+
+    const node = localStorage.getItem("QueqNode");
+    const isDone = localStorage.getItem("deadleafDone") === "1";
+    const hasShard = localStorage.getItem("shardChoice");
+
+    // 2. 如果选完碎片了，直接播结局
+    if (hasShard) {
+        playEnding();
+        return;
+    }
+
+    // 3. 从枯叶堆发完消息回来（清空屏幕，播新剧情）
+    if (isDone && !["deadleafReply", "deadleaf2", "deadleaf3"].includes(node)) {
+        messagesEl.innerHTML = "";
+        chatHistory = [];
         showNode("deadleafReply");
+        return;
+    }
+
+    // 4. 恢复普通的聊天记录（如果之前有存档的话）
+    if (localStorage.getItem("QueqHistory")) {
+        chatHistory = JSON.parse(localStorage.getItem("QueqHistory"));
+        messagesEl.innerHTML = "";
+        chatHistory.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "msg " + item.cls;
+            div.innerHTML =item.text.replace(/\[链接\]/g, '<a class="link" href="njxfz-luntan.html" target="_blank" style="color:#4a7cff;text-decoration:underline;cursor:pointer;">njxfz-luntan.html</a>');
+            messagesEl.appendChild(div);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        // 把当前节点的选项拉出来
+        if (node && script[node] && script[node].choices) {
+            choicesEl.innerHTML = "";
+            script[node].choices.forEach(choice => {
+                const btn = document.createElement("button");
+                btn.textContent = choice.text;
+                btn.onclick = () => {
+                    addMessage(choice.text, "me");
+                    chatHistory.push({ type: "msg", text: choice.text, cls: "me" });
+                    localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+                    choicesEl.innerHTML = "";
+                    if (choice.end) {
+                        addSystem("—— 委托已接取。请前往校园论坛 ——");
+                        return;
+                    }
+                    if (choice.goto) {
+                        setTimeout(() => { window.location.href = choice.goto; }, 600);
+                        return;
+                    }
+                    setTimeout(() => showNode(choice.next), 600);
+                };
+                choicesEl.appendChild(btn);
+            });
+        }
+    }
+
+    // 5. 触发彩蛋
+    playNameEgg();
+}
+
+// ============ 名字解谜彩蛋 ============
+function playNameEgg() {
+    const errCount = parseInt(localStorage.getItem("nameErrCount") || "0");
+    const eggAsked = localStorage.getItem("egg_asked");
+    const gaveAnswer = localStorage.getItem("egg_gave_answer");
+    const isSolved = localStorage.getItem("name_solved") === "1";
+
+    if (errCount === 0) return; // 没去枯叶堆试错过，不触发
+
+    if (!eggAsked) {
+        // 第一次从枯叶堆切回来
+        localStorage.setItem("egg_asked", "1");
+        setTimeout(() => {
+            addMessage("你叫什么名字？", "me");
+            chatHistory.push({ type: "msg", text: "你叫什么名字？", cls: "me" });
+            localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+
+            setTimeout(() => {
+                if (errCount >= 5) {
+                    addMessage("蔡惜瞳。怎么了？", "them");
+                    chatHistory.push({ type: "msg", text: "蔡惜瞳。怎么了？", cls: "them" });
+                    localStorage.setItem("egg_gave_answer", "1");
+                } else {
+                    addMessage("【自动回复】该同学正在上课，请下课后联系。", "them");
+                    chatHistory.push({ type: "msg", text: "【自动回复】该同学正在上课，请下课后联系。", cls: "them" });
+                }
+                localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+            }, MSG_INTERVAL);
+        }, 1000);
     } else {
-        const nodeKey = localStorage.getItem("QueqNode");
-        if (nodeKey) showNode(nodeKey);
+        // 之前问过了，这次在枯叶堆里错到了 5 次
+        if (errCount >= 5 && !gaveAnswer) {
+            localStorage.setItem("egg_gave_answer", "1");
+            setTimeout(() => {
+                addMessage("蔡惜瞳。怎么了？", "them");
+                chatHistory.push({ type: "msg", text: "蔡惜瞳。怎么了？", cls: "them" });
+                localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+            }, 1000);
+        } 
+        // 之前问过了，玩家自己解出来了
+        else if (isSolved && !gaveAnswer) {
+            localStorage.setItem("egg_gave_answer", "1");
+            setTimeout(() => {
+                addMessage("怎么了？", "them");
+                chatHistory.push({ type: "msg", text: "怎么了？", cls: "them" });
+                localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+                
+                setTimeout(() => {
+                    choicesEl.innerHTML = "";
+                    const btn = document.createElement("button");
+                    btn.textContent = "没事。";
+                    btn.onclick = () => {
+                        addMessage("没事。", "me");
+                        chatHistory.push({ type: "msg", text: "没事。", cls: "me" });
+                        localStorage.setItem("QueqHistory", JSON.stringify(chatHistory));
+                        choicesEl.innerHTML = "";
+                    };
+                    choicesEl.appendChild(btn);
+                }, MSG_INTERVAL);
+            }, 1000);
+        }
     }
 }
 
-// 恢复上次未点的选项
+// ============ 切回页面时的刷新检测 ============
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        const node = localStorage.getItem("QueqNode");
+        const isDone = localStorage.getItem("deadleafDone") === "1";
+        const hasShard = localStorage.getItem("shardChoice");
+
+        // 如果刚从枯叶堆发完消息回来，且还没进入后续对话
+        if (isDone && !hasShard && !["deadleafReply", "deadleaf2", "deadleaf3", "ending"].includes(node)) {
+            messagesEl.innerHTML = "";
+            choicesEl.innerHTML = "";
+            chatHistory = [];
+            showNode("deadleafReply");
+        }
+        
+        // 如果刚选完碎片回来
+        if (hasShard && node !== "ending") {
+            messagesEl.innerHTML = "";
+            choicesEl.innerHTML = "";
+            playEnding();
+        }
+
+        // 触发名字解谜彩蛋
+        if (!isDone && !hasShard) {
+            playNameEgg();
+        }
+    }
+});
+
+// 启动游戏
 startApp();
 </script>
 </body>

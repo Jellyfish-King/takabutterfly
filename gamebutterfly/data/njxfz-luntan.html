@@ -984,8 +984,22 @@ const gegePosts = [
             { author: "纸巾", color: "#c98a4b", text: "你没救了虫子" }
         ]
     },
-    {
+ {
         id: "b3",
+        title: "我妹小时候拿拖把给我做了个帽子",
+        date: "2023-10-15",
+        body: "还挺像模像样的，导致我都没发现是我家拖把。我还说她怎么突然变乖了，还送我顶帽子，我还戴上了，结果那一天头痒，洗头的时候把头皮都搓红了，她还一直搁那笑。",
+        replies: [
+            { author: "萝卜", color: "#a08a6c", text: "你天天蛐蛐你妹，小心她上高中以后挂你" },
+            { author: "纸巾", color: "#c98a4b", text: "不管用啥做的，都是人家亲手做的嘛" },
+            { author: "万能小明", color: "#6c8cbf", text: "起码要用人能戴的东西吧！" ,replyTo:"纸巾"},
+            { author: "白给", color: "#7fb07f", text: "话说你头像是你妹吗，是你画的还是她画的" },
+            { author: "万能小明", color: "#6c8cbf", text: "我画的" ,replyTo:"白给"},
+            { author: "白给", color: "#7fb07f", text: "给老妹画成傻子了，罪状+1" }
+        ]
+    },
+    {
+        id: "b4",
         title: "我妹今天期末考",
         date: "2025-07-20",
         body: "我比她还紧张。偷溜去她学校，在考场外面站了一上午,手机刷了八百遍。她出来的时候说:还行。我没敢问她数学，怕她哭。",
@@ -997,25 +1011,25 @@ const gegePosts = [
         ]
     },
     {
-        id: "b4",
+        id: "b5",
         title: "食堂的菜越来越难吃了",
         date: "2025-10-15",
         body: "今天的土豆炖肉,土豆是硬的,肉是柴的。算了。"
     },
     {
-        id: "b5",
+        id: "b6",
         title: "数学考砸了",
         date: "2025-11-08",
         body: "六十七分。不想说话。"
     },
     {
-        id: "b6",
+        id: "b7",
         title: "睡不着",
         date: "2026-02-20",
         body: "凌晨两点。有人吗。"
     },
     {
-        id: "b7",
+        id: "b8",
         title: "删了",
         date: "2026-03-11",
         body: "算了。没什么好说的。"
@@ -1037,7 +1051,7 @@ const gegeLiked = [
         date: "2026-04-22",
         author: "我是谁并不重要",
         authorColor: "#000000",
-        body: "以防吞帖，维吉尼亚密码加密，密文：zmskhmsm,密钥：wish，不会解密的去找热门帖子。解出来后改论坛后缀就行。",
+        body: "以防吞帖，用密码加密，密文：zmskhmsm,密钥：wish，不会解密的去找热门帖子。解出来后改把论坛网址里的“njxfz-luntan”替换掉就行。",
         replies: [
             { author: "露人", color: "#888", text: "什么鬼东西" },
             { author: "纸巾", color: "#c98a4b", text: "别乱访问不明网站" }
@@ -1209,6 +1223,7 @@ document.getElementById("switchHint").onclick = () => {
     if (user && user.password === pwd) {
         loggedIn = true;
         window.currentUser = acc;
+	localStorage.setItem("currentUser", acc);
         err.textContent = "";
         loginModal.classList.remove("show");
         document.getElementById("loginHint").style.display = "none";
@@ -1296,6 +1311,9 @@ forumAvatar.textContent = "";
     };
 }
  function renderAll() {
+if (localStorage.getItem("currentUser")) {
+    window.currentUser = localStorage.getItem("currentUser");
+}
     renderPublic();
     renderNotices();
     renderLost();
@@ -1526,7 +1544,8 @@ else if (type === "market") post = marketPosts.find(p => p.id === id);
 
     document.getElementById("modalTitle").textContent = post.title;
 
-    const authorName = post.author || "菜粉蝶";
+    const isGege = (localStorage.getItem("currentUser") === "wannengxiaoming");
+const authorName = post.author || (isGege ? "万能小明" : "菜粉蝶");
     const authorColor = post.authorColor || "#ff8c42";
     const authorChar = authorName[0];
 
@@ -1540,8 +1559,7 @@ else if (type === "market") post = marketPosts.find(p => p.id === id);
       </div>
     `;
 
- const opName = post.author || (window.currentUser === "wannengxiaoming" ? "万能小明" : "菜粉蝶");
-
+const opName = post.author || (isGege ? "万能小明" : "菜粉蝶");
 const repliesEl = document.getElementById("modalReplies");
 document.getElementById("replyCount").textContent = `共 ${(post.replies || []).length} 条回复`;
 
